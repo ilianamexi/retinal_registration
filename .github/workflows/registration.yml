@@ -33,7 +33,13 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Download FIRE
         run: |
-          curl -fL --retry 3 -A "Mozilla/5.0 (research download)" -o FIRE.7z https://projects.ics.forth.gr/cvrl/fire/FIRE.7z
+          for url in https://projects.ics.forth.gr/cvrl/fire/FIRE.7z http://projects.ics.forth.gr/cvrl/fire/FIRE.7z \
+                     https://www.ics.forth.gr/cvrl/fire/FIRE.7z http://www.ics.forth.gr/cvrl/fire/FIRE.7z; do
+            echo "Trying $url"
+            if curl -fL --connect-timeout 30 --retry 2 -A "Mozilla/5.0 (research download)" -o FIRE.7z "$url"; then break; fi
+            rm -f FIRE.7z
+          done
+          test -s FIRE.7z
           ls -lh FIRE.7z
           7z x -y -oFIRE FIRE.7z > /dev/null
           find FIRE -maxdepth 3 -type d

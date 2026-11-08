@@ -1,1 +1,0 @@
-For information, please visit http://www.ics.forth.gr/cvrl/fire/

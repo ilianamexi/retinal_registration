@@ -1,0 +1,56 @@
+name: registration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests
+
+  fire:
+    # Full evaluation on the FIRE dataset, started by hand from the Actions tab.
+    # Note: in November 2026 the FIRE server did not accept connections from GitHub runners.
+    needs: tests
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Download FIRE
+        run: |
+          for url in https://projects.ics.forth.gr/cvrl/fire/FIRE.7z http://projects.ics.forth.gr/cvrl/fire/FIRE.7z \
+                     https://www.ics.forth.gr/cvrl/fire/FIRE.7z http://www.ics.forth.gr/cvrl/fire/FIRE.7z; do
+            echo "Trying $url"
+            if curl -fL --connect-timeout 30 --retry 2 -A "Mozilla/5.0 (research download)" -o FIRE.7z "$url"; then break; fi
+            rm -f FIRE.7z
+          done
+          test -s FIRE.7z
+          ls -lh FIRE.7z
+          7z x -y -oFIRE FIRE.7z > /dev/null
+          find FIRE -maxdepth 3 -type d
+          find FIRE -name "*.jpg" | wc -l
+          f=$(find FIRE -name "control_points_A01_1_2.txt" | head -1); echo "$f"; head -3 "$f"
+      - run: python retinal_registration.py --fire FIRE
+      - name: Commit results to the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results figures
+          git commit -m "Add FIRE registration results from CI run ${{ github.run_id }}" || echo "nothing to commit"
+          git push origin HEAD:${{ github.ref_name }}

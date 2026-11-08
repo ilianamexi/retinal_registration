@@ -1,0 +1,49 @@
+name: registration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q tests
+
+  fire:
+    # Full evaluation on the FIRE dataset: run from the Actions tab, or put [run-analysis] in the commit message.
+    needs: tests
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-analysis]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Download FIRE
+        run: |
+          curl -fL --retry 3 -A "Mozilla/5.0 (research download)" -o FIRE.7z https://projects.ics.forth.gr/cvrl/fire/FIRE.7z
+          ls -lh FIRE.7z
+          7z x -y -oFIRE FIRE.7z > /dev/null
+          find FIRE -maxdepth 3 -type d
+          find FIRE -name "*.jpg" | wc -l
+          f=$(find FIRE -name "control_points_A01_1_2.txt" | head -1); echo "$f"; head -3 "$f"
+      - run: python retinal_registration.py --fire FIRE
+      - name: Commit results to the branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results figures
+          git commit -m "Add FIRE registration results from CI run ${{ github.run_id }}" || echo "nothing to commit"
+          git push origin HEAD:${{ github.ref_name }}

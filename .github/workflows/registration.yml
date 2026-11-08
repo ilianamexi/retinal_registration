@@ -20,9 +20,10 @@ jobs:
       - run: python -m pytest -q tests
 
   fire:
-    # Full evaluation on the FIRE dataset: run from the Actions tab, or put [run-analysis] in the commit message.
+    # Full evaluation on the FIRE dataset, started by hand from the Actions tab.
+    # Note: in November 2026 the FIRE server did not accept connections from GitHub runners.
     needs: tests
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-analysis]')
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
